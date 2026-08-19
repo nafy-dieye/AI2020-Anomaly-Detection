@@ -32,7 +32,6 @@ def _save_reading(raw: dict, result: dict) -> SensorReading:
 def index(request):
     result = None
     reading_id = None
-    current_model = None
 
     selected_model = (
         request.POST.get("model_choice", "autoencoder")
@@ -42,6 +41,12 @@ def index(request):
 
     if selected_model not in {"autoencoder", "ann"}:
         selected_model = "autoencoder"
+
+    current_model = (
+        ANNModel.get_instance()
+        if selected_model == "ann"
+        else AnomalyModel.get_instance()
+    )
 
     if request.method == "POST":
         form = SensorReadingForm(request.POST)
@@ -57,16 +62,12 @@ def index(request):
             )
 
             if selected_model == "ann":
-                current_model = ANNModel.get_instance()
-
-                result = current_model.predict(
+                result = ANNModel.get_instance().predict(
                     raw,
                     machine_type,
                 )
             else:
-                current_model = AnomalyModel.get_instance()
-
-                result = current_model.predict(raw)
+                result = AnomalyModel.get_instance().predict(raw)
 
             reading = _save_reading(raw, result)
             reading_id = reading.id
@@ -80,27 +81,15 @@ def index(request):
             result["severity_ratio"] or 0,
             1.5,
         )
-
         gauge_position = round(
             capped_ratio / 1.5 * 100,
             1,
         )
 
-    threshold_position = None
-    current_threshold = None
-    current_threshold_percentile = None
-
-    if result:
-        threshold_position = round(
-            min(result["threshold"] / 1.5, 1.0) * 100,
-            1,
-        )
-
-        current_threshold = result["threshold"]
-
-        current_threshold_percentile = result.get(
-            "threshold_percentile"
-        )
+    threshold_position = round(
+        min(current_model.threshold / 1.5, 1.0) * 100,
+        1,
+    )
 
     context = {
         "form": form,
@@ -108,9 +97,11 @@ def index(request):
         "reading_id": reading_id,
         "gauge_position": gauge_position,
         "gauge_threshold_position": threshold_position,
-        "current_threshold": current_threshold,
-        "current_threshold_percentile": (
-            current_threshold_percentile
+        "current_threshold": current_model.threshold,
+        "current_threshold_percentile": getattr(
+            current_model,
+            "threshold_percentile",
+            None,
         ),
         "selected_model": selected_model,
     }
