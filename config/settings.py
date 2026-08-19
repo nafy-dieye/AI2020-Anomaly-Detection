@@ -27,7 +27,7 @@ DEBUG = False
 
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ["https://ai2020-anomaly-detection.onrender.com"]
 
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
