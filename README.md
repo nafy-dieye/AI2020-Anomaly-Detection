@@ -1,137 +1,331 @@
-# Détecteur d'anomalies — Django
+# AI2020 — Anomaly Detection
 
-Application Django exposant le modèle auto-encodeur (AI4I 2020, détection
-d'anomalies non supervisée) via une interface web et une API JSON.
+Application web de **maintenance prédictive** développée avec Django permettant
+d'analyser des données de capteurs industriels et de détecter des anomalies.
 
-## Fonctionnalités
+Le projet compare deux approches de Machine Learning :
 
-- **Page « Analyser »** (`/`) :
-  - Seuil de détection actuel affiché en permanence
-  - **Boutons de simulation rapide** : « Simuler un cas normal » / « Simuler une panne » pré-remplissent le formulaire avec des valeurs plausibles, sans saisie manuelle
-  - Verdict immédiat avec **jauge visuelle** (position de l'erreur de reconstruction par rapport au seuil)
-  - Bouton **🚩 Signaler** pour marquer un verdict jugé incorrect par un opérateur (faux positif/négatif)
-- **Dashboard** (`/dashboard/`) : statistiques (lectures, taux d'anomalies, anomalies sur 24h, lectures signalées), journal des pannes horodaté (avec signalement possible directement depuis le tableau), graphique de l'erreur de reconstruction dans le temps, et **bouton de réinitialisation** (supprime tout l'historique, avec confirmation).
-- **Simulation aléatoire** : les boutons « Simuler un cas normal / une panne » génèrent de nouvelles valeurs à chaque clic (pas toujours les mêmes), dans des plages réalistes — 3 profils de panne possibles tirés au hasard (usure/surcontrainte, dissipation thermique, puissance anormale).
-- **API JSON** (`/api/predict/`) : mêmes prédictions, pour intégration externe.
+- un **Auto-encodeur** pour la détection d'anomalies ;
+- un **réseau de neurones artificiels (ANN)** pour la classification des pannes.
 
-Chaque prédiction (web ou API) est enregistrée en base (`SensorReading`) et alimente automatiquement le dashboard.
+---
 
-## Contenu
+## 🎯 Objectif du projet
 
+L'objectif est de développer une application capable d'identifier automatiquement
+des situations potentiellement anormales à partir de mesures provenant de
+machines industrielles.
+
+L'application permet également de comparer les résultats obtenus avec deux
+approches différentes de Machine Learning.
+
+---
+
+## 📊 Dataset
+
+Le projet utilise le dataset **AI4I 2020 Predictive Maintenance Dataset**.
+
+Les principales variables utilisées sont :
+
+- Air temperature [K]
+- Process temperature [K]
+- Rotational speed [rpm]
+- Torque [Nm]
+- Tool wear [min]
+
+Des variables dérivées sont également calculées :
+
+- Temperature difference
+- Mechanical power
+- Tool stress
+- Temperature ratio
+- Torque/speed ratio
+
+---
+
+## 🤖 Modèles utilisés
+
+### 1. Auto-encodeur
+
+L'auto-encodeur est utilisé pour effectuer une détection d'anomalies.
+
+Le principe consiste à :
+
+1. normaliser les données ;
+2. reconstruire les observations avec l'auto-encodeur ;
+3. calculer l'erreur de reconstruction ;
+4. comparer cette erreur à un seuil.
+
+Une observation est considérée comme anormale lorsque :
+
+```text
+Erreur de reconstruction > Seuil
 ```
-config/                  # Configuration du projet Django
-detector/
-  ml_model.py             # Chargement du modèle + feature engineering + inférence
-  forms.py                 # Formulaire de saisie des lectures capteurs
-  views.py                 # Vue web (index) + vue API (PredictAPIView)
-  urls.py
-  templates/detector/index.html
-  ml_artifacts/            # autoencoder.keras, scaler.pkl, threshold.pkl, feature_names.pkl
-requirements.txt
+
+Le seuil utilisé dans l'application est basé sur le **97e percentile (P97)**.
+
+---
+
+### 2. Artificial Neural Network (ANN)
+
+Un réseau de neurones artificiels est également utilisé pour effectuer une
+classification supervisée.
+
+L'ANN produit un score permettant de déterminer si une observation correspond
+à une situation normale ou à une panne.
+
+La règle de décision utilisée est :
+
+```text
+Score >= 0.5 → Panne
+Score < 0.5  → Normal
 ```
 
-## Installation
+---
+
+## 🔄 Architecture du projet
+
+```text
+                 Données capteurs
+                        │
+                        ▼
+                Feature Engineering
+                        │
+                        ▼
+              ┌─────────┴─────────┐
+              │                   │
+              ▼                   ▼
+        Auto-encodeur             ANN
+              │                   │
+              ▼                   ▼
+      Erreur de reconstruction    Score
+              │                   │
+              ▼                   ▼
+           Seuil P97            Seuil 0.5
+              │                   │
+              └─────────┬─────────┘
+                        ▼
+                     Résultat
+                        │
+                        ▼
+                 Interface Django
+```
+
+---
+
+## 🖥️ Fonctionnalités
+
+L'application permet de :
+
+- saisir des mesures de capteurs ;
+- simuler un cas normal ;
+- simuler une panne ;
+- sélectionner le modèle à utiliser ;
+- analyser une observation ;
+- afficher le score du modèle ;
+- afficher le seuil de décision ;
+- afficher le verdict Normal / Anomalie ;
+- consulter les features utilisées ;
+- conserver un historique des analyses ;
+- consulter un dashboard ;
+- comparer l'Auto-encodeur et l'ANN.
+- **🚩 Signaler** pour marquer un verdict jugé incorrect par un opérateur (faux positif/négatif)
+- **bouton de réinitialisation** (supprime tout l'historique, avec confirmation)
+
+---
+
+## 🔀 Comparaison des modèles
+
+L'interface permet d'utiliser le **même jeu de valeurs** avec les deux modèles.
+
+```text
+Même observation
+       │
+       ├──► Auto-encodeur ──► Score + seuil ──► Verdict
+       │
+       └──► ANN ────────────► Score + seuil ──► Verdict
+```
+
+Cela permet d'étudier les différences entre une approche de détection
+d'anomalies non supervisée et une approche de classification supervisée.
+
+---
+
+## 🛠️ Technologies utilisées
+
+### Backend
+
+- Python
+- Django
+
+### Machine Learning
+
+- TensorFlow / Keras
+- Scikit-learn
+- Pandas
+- NumPy
+- Joblib
+
+### Frontend
+
+- HTML
+- CSS
+- JavaScript
+
+### Base de données
+
+- SQLite
+
+---
+
+## 📁 Structure du projet
+
+```text
+AI2020/
+│
+├── config/
+├── notebook/
+│   ├── AI2020_AUTOENCODER_ANN.ipynb
+├── screeshots/
+│   ├── anomalie.png
+│   ├── normal.png
+│   ├── dashboard.png
+│   ├── interface.png
+├── detector/
+│   ├── migrations/
+│   ├── ml_artifacts/
+│   │   ├── autoencoder.keras
+│   │   ├── scaler.pkl
+│   │   ├── threshold.pkl
+│   │   ├── ann_model.keras
+│   │   ├── scaler_ann.pkl
+│   │   └── ann_threshold.pkl
+│   │
+│   ├── static/
+│   ├── templates/
+│   ├── forms.py
+│   ├── ml_model.py
+│   ├── models.py
+│   ├── urls.py
+│   └── views.py
+│
+├── manage.py
+├── requirements.txt
+├── README.md
+└── .gitignore
+```
+
+---
+
+## 🚀 Installation
+
+### 1. Cloner le repository
+
+```bash
+git clone https://github.com/nafy-dieye/AI2020-Anomaly-Detection.git
+```
+
+### 2. Entrer dans le projet
+
+```bash
+cd AI2020-Anomaly-Detection
+```
+
+### 3. Créer un environnement virtuel
 
 ```bash
 python -m venv venv
-source venv/bin/activate        # ou venv\Scripts\activate sous Windows
+```
+
+### 4. Activer l'environnement virtuel
+
+Sous Windows :
+
+```bash
+venv\Scripts\activate
+```
+
+### 5. Installer les dépendances
+
+```bash
 pip install -r requirements.txt
+```
+
+### 6. Appliquer les migrations
+
+```bash
 python manage.py migrate
+```
+
+### 7. Lancer le serveur
+
+```bash
 python manage.py runserver
 ```
 
-Puis ouvrir http://127.0.0.1:8000/
+L'application sera accessible à :
 
-## Utilisation
-
-### Interface web
-
-Formulaire avec les 5 mesures brutes (température air, température process,
-vitesse de rotation, couple, usure outil). Les 5 features dérivées
-(temperature_difference, mechanical_power, tool_stress, temperature_ratio,
-torque_speed_ratio) sont calculées automatiquement côté serveur, dans le même
-ordre que celui utilisé à l'entraînement (`feature_names.pkl`).
-
-### API JSON
-
-```bash
-curl -X POST http://127.0.0.1:8000/api/predict/ \
-  -H "Content-Type: application/json" \
-  -d '{
-        "air_temperature": 298.1,
-        "process_temperature": 308.6,
-        "rotational_speed": 1551,
-        "torque": 42.8,
-        "tool_wear": 108
-      }'
+```text
+http://127.0.0.1:8000/
 ```
 
-Réponse :
+---
 
-```json
-{
-  "reconstruction_error": 0.1523,
-  "threshold": 0.9256,
-  "threshold_percentile": 97,
-  "is_anomaly": false,
-  "severity_ratio": 0.16,
-  "engineered_features": { "...": "..." }
-}
+## 📈 Exemple de résultat
+
+### ANN
+
+```text
+Modèle utilisé : ANN
+
+Score ANN : 0.9787
+Seuil      : 0.5000
+Score/seuil: 1.96x
+
+→ Anomalie détectée
 ```
 
-## Points d'attention avant mise en production
+### Auto-encodeur
 
-- **`ALLOWED_HOSTS`** est actuellement à `["*"]` pour faciliter les tests —
-  à restreindre au(x) nom(s) de domaine réel(s).
-- **`DEBUG = True`** par défaut dans `settings.py` (généré par Django) — à
-  passer à `False` en production, avec une vraie `SECRET_KEY` en variable
-  d'environnement plutôt qu'en dur dans le fichier.
-- Le modèle Keras est chargé **une seule fois** au premier appel (singleton
-  thread-safe dans `AnomalyModel.get_instance()`), pas à chaque requête —
-  important pour la latence en production. Si vous déployez avec plusieurs
-  workers (gunicorn, uwsgi), chaque worker charge sa propre copie du modèle
-  en mémoire (~quelques dizaines de Mo, sans souci pour un modèle aussi
-  petit).
-- Le endpoint `/api/predict/` est actuellement en `csrf_exempt` car pensé
-  comme une API sans session — si vous l'appelez depuis un navigateur avec
-  authentification par session plutôt qu'un client externe, envisagez une
-  authentification par token (Django REST Framework + TokenAuthentication,
-  par exemple) plutôt que de désactiver CSRF.
-- Le seuil et le scaler ont été entraînés uniquement sur des données
-  normales : toute dérive du process industriel (nouvelle machine,
-  recalibration des capteurs) peut nécessiter un ré-entraînement.
+```text
+Modèle utilisé : Auto-encodeur
 
-## Comparaison Auto-encodeur / ANN
+Erreur de reconstruction : 0.45
+Seuil P97                 : 0.92
 
-La page « Analyser » propose maintenant un switch entre :
-- **Auto-encodeur** : erreur de reconstruction, seuil P97.
-- **ANN** : classifieur supervisé, score sigmoïde et seuil 0,5.
+→ Fontionnement Normal
+```
 
-Pour comparer les modèles, gardez exactement les mêmes valeurs capteurs,
-analysez avec le premier modèle, puis basculez le switch sur le second et
-cliquez à nouveau sur « Analyser ».
+---
 
-L'ANN utilise aussi la variable `Type` du dataset AI4I 2020.
-L'encodage est H=0, L=1, M=2. Le choix du Type apparaît uniquement
-quand l'ANN est sélectionné.
-
-Les trois artefacts ANN sont inclus dans `detector/ml_artifacts/` :
-`ann_model.keras`, `scaler_ann.pkl`, `ann_threshold.pkl`.
+## 📸 Captures d'écran
 
 
-## ⚠️ Audit de cohérence ANN
+- ![Interface Accueil](screenshots/interface.png) ;
+- ![Résultat Normal](screenshots/normal.png) ;
+- ![Résultat Anomalie](screenshots/anomalie.png) ;
+- ![Dashboard d'analyse](screenshots/dashboard.png).
 
-Le notebook `PROJET_DEEP_LEARNING_audite_corrige_FINAL_COHERENT(2).ipynb`
-contient une cellule où `X` retire `Type` avant l'entraînement de l'ANN.
-Cependant, les artefacts ANN fournis avec ce projet (`ann_model.keras` et
-`scaler_ann.pkl`) attendent **11 variables**, dont `Type` en première position.
 
-Cette version Django est donc volontairement alignée sur **les artefacts
-effectivement fournis**, afin que l'application fonctionne sans inventer un
-modèle différent. Le sélecteur `H/L/M` reste nécessaire avec ces artefacts.
+---
 
-Pour être strictement identique au notebook (10 variables sans `Type`), il faut
-réexécuter l'entraînement ANN du notebook après avoir vérifié la définition de
-`X`, puis remplacer `ann_model.keras` et `scaler_ann.pkl` par les nouveaux
-artefacts. Il ne faut pas simplement supprimer `Type` dans Django : le modèle
-actuel refuserait alors l'entrée car il possède 11 entrées.
+## 🎓 Contexte
+
+Projet réalisé dans le cadre de mon apprentissage en **Big Data / Intelligence
+Artificielle** plus precisement le Deep Learning , avec pour objectif de mettre en pratique :
+
+- l'analyse de données ;
+- le feature engineering ;
+- le Machine Learning ;
+- le Deep Learning ;
+- la détection d'anomalies ;
+- la classification ;
+- l'intégration d'un modèle ML dans une application Django.
+
+---
+
+## 👩🏽‍💻 Auteur
+
+**Nafy Dieye**
+
+Big Data & Intelligence Artificielle
