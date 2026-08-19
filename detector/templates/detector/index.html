@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Détection d'anomalies — Auto-encodeur & ANN</title>
+{% load static %}
+<link rel="stylesheet" href="{% static 'detector/css/style.css' %}">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="navbar">
+    <a href="{% url 'detector:index' %}" class="active">Analyser</a>
+    <a href="{% url 'detector:dashboard' %}">Dashboard</a>
+  </div>
+
+  <div class="eyebrow">Maintenance prédictive — AI4I 2020</div>
+  <h1>Détecteur d'anomalies capteurs</h1>
+
+  <p class="subtitle">
+    Choisissez le modèle puis analysez exactement la même lecture
+    pour comparer l'auto-encodeur et l'ANN.
+  </p>
+
+  {% if result %}
+  <div class="panel">
+
+    <div class="panel-title">
+      Résultat — {{ result.model_display_name }}
+    </div>
+
+    <div class="result {% if result.is_anomaly %}anomaly{% else %}normal{% endif %}">
+      <div class="status-dot {% if result.is_anomaly %}anomaly{% else %}normal{% endif %}"></div>
+
+      <div class="result-text">
+        <div class="status-label">Statut</div>
+
+        <div class="status-value">
+          {% if result.is_anomaly %}
+            Anomalie détectée
+          {% else %}
+            Fonctionnement normal
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="model-result-badge">
+      Modèle utilisé :
+      <strong>{{ result.model_display_name }}</strong>
+
+      {% if result.machine_type %}
+        · Type ANN :
+        <strong>{{ result.machine_type }}</strong>
+      {% endif %}
+    </div>
+
+    <div class="metrics">
+
+      <div class="metric">
+        <div class="metric-label">
+          {{ result.score_label }}
+        </div>
+        <div class="metric-value">
+          {{ result.score|floatformat:4 }}
+        </div>
+      </div>
+
+      <div class="metric">
+        <div class="metric-label">
+          Seuil
+          {% if result.threshold_percentile %}
+            (P{{ result.threshold_percentile }})
+          {% endif %}
+        </div>
+        <div class="metric-value">
+          {{ result.threshold|floatformat:4 }}
+        </div>
+      </div>
+
+      <div class="metric">
+        <div class="metric-label">
+          Score / seuil
+        </div>
+        <div class="metric-value">
+          {{ result.severity_ratio|floatformat:2 }}×
+        </div>
+      </div>
+
+    </div>
+
+    <div class="gauge-wrap">
+
+      <div class="gauge-labels">
+        <span>0</span>
+        <span>Position du score par rapport au seuil</span>
+        <span>≥ 1.5×</span>
+      </div>
+
+      <div class="gauge-track">
+        <div
+          class="gauge-threshold-marker"
+          style="left: {{ gauge_threshold_position }}%;">
+        </div>
+
+        <div
+          class="gauge-cursor"
+          style="left: {{ gauge_position }}%;">
+        </div>
+      </div>
+
+    </div>
+
+    <details>
+      <summary class="features-toggle">
+        ▸ Voir les features utilisées par le modèle
+      </summary>
+
+      <table class="features-table">
+        {% for name, value in result.engineered_features.items %}
+        <tr>
+          <td>{{ name }}</td>
+          <td>{{ value|floatformat:3 }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </details>
+
+    {% if reading_id %}
+    <div class="flag-row">
+
+      <span class="flag-note">
+        Ce verdict vous semble incorrect ?
+      </span>
+
+      <form
+        method="post"
+        action="{% url 'detector:flag_reading' reading_id %}">
+
+        {% csrf_token %}
+
+        <input
+          type="hidden"
+          name="next"
+          value="{% url 'detector:index' %}">
+
+        <button
+          type="submit"
+          class="flag-btn">
+          🚩 Signaler cette lecture
+        </button>
+
+      </form>
+
+    </div>
+    {% endif %}
+
+  </div>
+  {% endif %}
+
+  <div class="threshold-info">
+    <span>
+      Seuil actuel — {{ selected_model|title }}
+    </span>
+
+    <strong>
+      {{ current_threshold|floatformat:4 }}
+    </strong>
+  </div>
+
+  <div class="panel">
+
+    <div class="panel-title">
+      Choix du modèle
+    </div>
+
+    <form method="post" id="analysis-form">
+
+      {% csrf_token %}
+
+      <div
+        class="model-switch"
+        role="radiogroup"
+        aria-label="Modèle d'analyse">
+
+        {% for radio in form.model_choice %}
+        <label class="model-option">
+          {{ radio.tag }}
+          <span>{{ radio.choice_label }}</span>
+        </label>
+        {% endfor %}
+
+      </div>
+
+      <div
+        class="ann-type-field"
+        id="ann-type-field">
+
+        <label for="{{ form.machine_type.id_for_label }}">
+          {{ form.machine_type.label }}
+        </label>
+
+        {{ form.machine_type }}
+
+        {% if form.machine_type.errors %}
+        <ul class="errorlist">
+          {% for error in form.machine_type.errors %}
+          <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
+        <div class="field-help">
+          L'ANN utilise Type encodé : H=0, L=1, M=2.
+        </div>
+
+      </div>
+
+      <div class="sim-row">
+
+        <button
+          type="button"
+          class="sim-btn normal"
+          onclick="loadExample('normal')">
+
+          <span class="sim-dot normal"></span>
+          Simuler un cas normal
+
+        </button>
+
+        <button
+          type="button"
+          class="sim-btn panne"
+          onclick="loadExample('panne')">
+
+          <span class="sim-dot panne"></span>
+          Simuler une panne
+
+        </button>
+
+      </div>
+
+      <div class="field-grid">
+
+        {% for field in form %}
+
+          {% if field.name != 'model_choice' and field.name != 'machine_type' %}
+
+          <div
+            class="field"
+            {% if forloop.counter == 5 %}
+              style="grid-column: 1 / -1;"
+            {% endif %}>
+
+            <label for="{{ field.id_for_label }}">
+              {{ field.label }}
+            </label>
+
+            {{ field }}
+
+            {% if field.errors %}
+            <ul class="errorlist">
+              {% for error in field.errors %}
+              <li>{{ error }}</li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+
+          </div>
+
+          {% endif %}
+
+        {% endfor %}
+
+      </div>
+
+      {% if form.non_field_errors %}
+      <ul class="errorlist">
+        {% for error in form.non_field_errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      <button type="submit">
+        Analyser la lecture
+      </button>
+
+    </form>
+
+  </div>
+
+  <footer>
+    Même lecture → changez le switch → <strong>Analyser</strong>
+    pour comparer les deux modèles.
+  </footer>
+
+</div>
+
+<script>
+function randomBetween(min, max, decimals = 1) {
+  const val = Math.random() * (max - min) + min;
+  return +val.toFixed(decimals);
+}
+
+function fillForm(values) {
+  for (const [key, value] of Object.entries(values)) {
+    const input = document.getElementById('id_' + key);
+    if (input) {
+      input.value = value;
+    }
+  }
+}
+
+// Cas normal fixe : reproductible pour comparer les deux modèles.
+function simulateNormal() {
+  fillForm({
+    air_temperature: 298.1,
+    process_temperature: 308.6,
+    rotational_speed: 1551,
+    torque: 42.8,
+    tool_wear: 108,
+    machine_type: 'M'
+  });
+}
+
+function simulatePanne() {
+
+  const profiles = ["osf", "hdf", "pwf"];
+
+  const profile =
+    profiles[Math.floor(Math.random() * profiles.length)];
+
+  let airTemp;
+  let processTemp;
+  let rpm;
+  let torque;
+  let toolWear;
+
+  if (profile === "osf") {
+
+    airTemp = randomBetween(296, 303, 1);
+    processTemp =
+      airTemp + randomBetween(7, 12, 1);
+
+    rpm = randomBetween(1400, 2000, 0);
+    torque = randomBetween(58, 76, 1);
+    toolWear = randomBetween(200, 253, 0);
+
+  } else if (profile === "hdf") {
+
+    airTemp = randomBetween(300, 304, 1);
+    processTemp =
+      airTemp + randomBetween(1, 8, 1);
+
+    rpm = randomBetween(1150, 1380, 0);
+    torque = randomBetween(25, 45, 1);
+    toolWear = randomBetween(20, 160, 0);
+
+  } else {
+
+    airTemp = randomBetween(295, 302, 1);
+    processTemp =
+      airTemp + randomBetween(7, 12, 1);
+
+    const lowPower =
+      Math.random() < 0.5;
+
+    if (lowPower) {
+      rpm = randomBetween(2400, 2800, 0);
+      torque = randomBetween(3, 9, 1);
+    } else {
+      rpm = randomBetween(1000, 1250, 0);
+      torque = randomBetween(68, 80, 1);
+    }
+
+    toolWear = randomBetween(20, 180, 0);
+  }
+
+  fillForm({
+    air_temperature: airTemp,
+    process_temperature: processTemp,
+    rotational_speed: rpm,
+    torque: torque,
+    tool_wear: toolWear,
+    machine_type: 'M'
+  });
+}
+
+function loadExample(kind) {
+  if (kind === 'normal') {
+    simulateNormal();
+  } else {
+    simulatePanne();
+  }
+}
+
+function updateAnnField() {
+
+  const selected =
+    document.querySelector(
+      'input[name="model_choice"]:checked'
+    );
+
+  const field =
+    document.getElementById('ann-type-field');
+
+  if (field) {
+    field.classList.toggle(
+      'visible',
+      selected && selected.value === 'ann'
+    );
+  }
+}
+
+document
+  .querySelectorAll('input[name="model_choice"]')
+  .forEach(input => {
+    input.addEventListener(
+      'change',
+      updateAnnField
+    );
+  });
+
+updateAnnField();
+</script>
+
+</body>
+</html>

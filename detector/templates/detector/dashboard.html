@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Détection d'anomalies AI4I</title>
+<style>
+  :root {
+    --bg: #0e1210;
+    --panel: #161c19;
+    --panel-border: #2a332e;
+    --text: #e6ebe7;
+    --text-dim: #8a978f;
+    --accent: #ffb347;
+    --ok: #4ade80;
+    --danger: #f87171;
+    --mono: 'JetBrains Mono', 'Courier New', monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(255,179,71,0.06), transparent 40%),
+      linear-gradient(180deg, #0e1210 0%, #0b0f0d 100%);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 48px 20px 80px;
+  }
+
+  .wrap { max-width: 980px; margin: 0 auto; }
+
+  .navbar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+
+  .navbar a {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    text-decoration: none;
+    color: var(--text-dim);
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-border);
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .navbar a:hover { color: var(--text); border-color: var(--accent); }
+  .navbar a.active { color: var(--accent); border-color: var(--accent); }
+
+  .reset-btn {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text-dim);
+    background: transparent;
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-border);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    margin: 0;
+    width: auto;
+  }
+
+  .reset-btn:hover { color: var(--danger); border-color: var(--danger); filter: none; }
+
+  .reset-notice {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ok);
+    background: rgba(74, 222, 128, 0.08);
+    border: 1px solid rgba(74, 222, 128, 0.25);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 20px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-size: 26px;
+    font-weight: 650;
+    margin: 0 0 32px;
+    letter-spacing: -0.01em;
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+
+  .stat-value {
+    font-size: 26px;
+    font-weight: 650;
+    font-family: var(--mono);
+  }
+
+  .stat-value.danger { color: var(--danger); }
+  .stat-value.ok { color: var(--ok); }
+  .stat-value.accent { color: var(--accent); }
+
+  .stat-sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-title::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+
+  .chart-wrap { position: relative; height: 280px; }
+
+  table.log-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+
+  table.log-table th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 10px 10px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  table.log-table td {
+    padding: 10px 10px;
+    border-bottom: 1px solid var(--panel-border);
+    font-family: var(--mono);
+  }
+
+  table.log-table tr:last-child td { border-bottom: none; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    background: rgba(248, 113, 113, 0.12);
+    color: var(--danger);
+    border: 1px solid rgba(248, 113, 113, 0.3);
+  }
+
+  .badge::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--danger);
+  }
+
+  .flag-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .flag-btn-sm {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  .flag-btn-sm:hover { border-color: var(--danger); }
+
+  .empty-state {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13.5px;
+    padding: 40px 0;
+  }
+
+  @media (max-width: 720px) {
+    .stat-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="navbar">
+    <a href="{% url 'detector:index' %}">Analyser</a>
+    <a href="{% url 'detector:dashboard' %}" class="active">Dashboard</a>
+    <form method="post" action="{% url 'detector:reset_history' %}" style="margin:0;" onsubmit="return confirmReset();">
+      {% csrf_token %}
+      <button type="submit" class="reset-btn">🗑 Réinitialiser</button>
+    </form>
+  </div>
+
+  {% if request.GET.reset %}
+  <div class="reset-notice">✓ Historique réinitialisé — {{ request.GET.reset }} lecture(s) supprimée(s).</div>
+  {% endif %}
+
+  <div class="eyebrow">Maintenance prédictive — AI4I 2020</div>
+  <h1>Tableau de bord</h1>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Lectures analysées</div>
+      <div class="stat-value">{{ total_count }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Anomalies détectées</div>
+      <div class="stat-value danger">{{ anomaly_count }}</div>
+      <div class="stat-sub">{{ anomaly_rate|floatformat:1 }}% des lectures</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Anomalies (24h)</div>
+      <div class="stat-value accent">{{ anomalies_last_24h }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Lectures signalées</div>
+      <div class="stat-value" style="color: var(--text-dim);">{{ flagged_count }}</div>
+      <div class="stat-sub">verdicts jugés incorrects</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Dernière panne détectée</div>
+    {% if last_anomaly %}
+      <div class="stat-value" style="font-size: 20px;">{{ last_anomaly.timestamp|date:"d/m/Y H:i:s" }}</div>
+      <div class="stat-sub">erreur {{ last_anomaly.reconstruction_error|floatformat:3 }} — seuil {{ last_anomaly.threshold|floatformat:3 }}</div>
+    {% else %}
+      <div class="stat-value ok" style="font-size: 16px;">Aucune panne détectée</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Erreur de reconstruction dans le temps</div>
+    {% if chart_data_json != '{"labels": [], "errors": [], "is_anomaly": []}' %}
+      <div class="chart-wrap">
+        <canvas id="errorChart"></canvas>
+      </div>
+    {% else %}
+      <div class="empty-state">Aucune lecture pour l'instant — analysez une lecture depuis la page « Analyser ».</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Journal des pannes ({{ failure_log|length }} plus récentes)</div>
+    {% if failure_log %}
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Heure de détection</th>
+          <th>Erreur</th>
+          <th>Seuil</th>
+          <th>Ratio</th>
+          <th>Vitesse</th>
+          <th>Couple</th>
+          <th>Usure outil</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in failure_log %}
+        <tr>
+          <td>{{ f.timestamp|date:"d/m/Y H:i:s" }}</td>
+          <td><span class="badge">{{ f.reconstruction_error|floatformat:3 }}</span></td>
+          <td>{{ f.threshold|floatformat:3 }}</td>
+          <td>{{ f.severity_ratio|floatformat:2 }}×</td>
+          <td>{{ f.rotational_speed|floatformat:0 }} rpm</td>
+          <td>{{ f.torque|floatformat:1 }} Nm</td>
+          <td>{{ f.tool_wear|floatformat:0 }} min</td>
+          <td>
+            {% if f.flagged %}
+              <span class="flag-badge">🚩 signalée</span>
+            {% else %}
+              <form method="post" action="{% url 'detector:flag_reading' f.id %}" style="margin:0;">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'detector:dashboard' %}">
+                <button type="submit" class="flag-btn-sm" title="Signaler comme incorrecte">🚩</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <div class="empty-state">Aucune panne détectée pour l'instant.</div>
+    {% endif %}
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+  function confirmReset() {
+    return confirm(
+      "Supprimer tout l'historique des lectures ? Cette action est irréversible."
+    );
+  }
+
+  const chartData = {{ chart_data_json|safe }};
+
+  if (chartData.labels.length > 0) {
+    const ctx = document.getElementById('errorChart').getContext('2d');
+
+    const pointColors = chartData.is_anomaly.map(a => a ? '#f87171' : '#4ade80');
+    const pointRadii = chartData.is_anomaly.map(a => a ? 4 : 2);
+
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: chartData.labels,
+        datasets: [
+          {
+            label: 'Erreur de reconstruction',
+            data: chartData.errors,
+            borderColor: '#ffb347',
+            backgroundColor: 'rgba(255, 179, 71, 0.08)',
+            borderWidth: 1.5,
+            pointBackgroundColor: pointColors,
+            pointBorderColor: pointColors,
+            pointRadius: pointRadii,
+            tension: 0.15,
+            fill: true,
+          },
+          {% if threshold_value %}
+          {
+            label: 'Seuil',
+            data: Array(chartData.labels.length).fill({{ threshold_value }}),
+            borderColor: '#8a978f',
+            borderWidth: 1,
+            borderDash: [6, 4],
+            pointRadius: 0,
+          },
+          {% endif %}
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            labels: { color: '#8a978f', font: { family: 'monospace', size: 11 } },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: '#8a978f', maxRotation: 0, autoSkip: true, maxTicksLimit: 8, font: { size: 10 } },
+            grid: { color: '#2a332e' },
+          },
+          y: {
+            ticks: { color: '#8a978f', font: { size: 10 } },
+            grid: { color: '#2a332e' },
+          },
+        },
+      },
+    });
+  }
+</script>
+</body>
+</html>
