@@ -326,6 +326,6 @@ Artificielle** plus precisement le Deep Learning , avec pour objectif de mettre 
 
 ## 👩🏽‍💻 Auteur
 
-**Nafy Dieye**
+**Nafy Dieye** et **Ndeye Yandé Ndiaye**
 
 Big Data & Intelligence Artificielle
